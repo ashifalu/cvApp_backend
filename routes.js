@@ -7,4 +7,6 @@ routes.post('/register',userController.registerController)
 
 routes.post('/verify-email',userController.verifyEmailController)
 
+routes.post('/login',userController.loginController)
+
 module.exports = routes

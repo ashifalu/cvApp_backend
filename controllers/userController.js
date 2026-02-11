@@ -76,3 +76,34 @@ exports.registerController = async (req, res) => {
         res.status(500).json(error)
         }
 };
+
+exports.loginController = async (req,res) => {
+    const { email,password } = req.body;
+
+    try {
+        const existingUser = await users.findOne({email});
+
+        if(!existingUser){
+            return res.status(400).json({message:"User not found"})
+        }
+        else{
+            const isPswdValid = await bcrypt.compare(password,existingUser.password)
+            if(!isPswdValid){
+                return res.status(401).json({message:"Incorrect Password"});
+            }
+            else {
+                const { password: _, ...userData } = existingUser._doc;
+                res.status(200).json({
+                        message: 'Login successful',
+                        user: userData
+                    });
+            }
+                
+        }
+        
+    } catch (error) {
+        console.log(error);
+        
+        res.status(500).json({message:"server error"})
+    }
+}
