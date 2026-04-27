@@ -11,8 +11,10 @@ const server = express();
 server.use(cors());
 
 //  to parse json datas
-server.use(express.json());
+server.use(express.json({ limit: '10mb'}));
 server.use(routes)
+// In your backend index.js
+server.use('/images', express.static('public/images'));
 
 require('./connection')
 

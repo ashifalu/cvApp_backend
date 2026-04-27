@@ -17,7 +17,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "mongoose": "^9.1.5",
-    "nodemailer": "^8.0.0"
+    "nodemailer": "^8.0.0",
+    "puppeteer": "^24.42.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
