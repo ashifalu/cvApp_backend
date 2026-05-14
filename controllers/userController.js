@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendMail");
 const otps = require("../model/otpModel");
+const jwt = require('jsonwebtoken')
 
 
 
@@ -61,13 +62,16 @@ exports.registerController = async (req, res) => {
                     const newUser = await users.create({
                     email,
                     password: hashedPassword
+                    
                     })
+                    const token = jwt.sign({id:newUser._id},process.env.JWTSECRETKEY)
 
                     await otps.deleteOne({ email });
 
                     res.status(200).json({
                         message: 'Registration successful',
-                        user: newUser
+                        user: newUser,
+                        token
                     });
                     }
                 }
@@ -92,10 +96,12 @@ exports.loginController = async (req,res) => {
                 return res.status(401).json({message:"Incorrect Password"});
             }
             else {
+                const token = jwt.sign({id:existingUser._id},process.env.JWTSECRETKEY)
                 const { password: _, ...userData } = existingUser._doc;
                 res.status(200).json({
                         message: 'Login successful',
-                        user: userData
+                        user: userData,
+                        token
                     });
             }
                 

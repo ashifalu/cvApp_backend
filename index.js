@@ -1,27 +1,38 @@
-require('dotenv').config()
+require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
+const routes = require('./routes');
+const cloudinary = require('cloudinary').v2;
+const path = require('path');
 
-const cors = require('cors')
-const routes = require('./routes')
-
-// crete server
+// create server
 const server = express();
 
-// to connect with frontend
-server.use(cors());
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.CLOUD_API_KEY,
+    api_secret: process.env.CLOUD_API_SECRET,
+});
 
-//  to parse json datas
-server.use(express.json({ limit: '10mb'}));
-server.use(routes)
-// In your backend index.js
+// middleware
+server.use(cors());
+server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Increase limit for large HTML
+server.use(express.json({ limit: '50mb' }));
+server.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// routes
+server.use(routes);
+
+// static files
 server.use('/images', express.static('public/images'));
 
-require('./connection')
+// DB connection
+require('./connection');
 
-const PORT = 4000 || process.env.PORT
+const PORT = process.env.PORT || 4000;
 
-
-server.listen(PORT,()=>{
-    console.log(`server running successfully at ${PORT}`);
-    
-})
+server.listen(PORT, () => {
+    console.log(`Server running successfully at ${PORT}`);
+});
