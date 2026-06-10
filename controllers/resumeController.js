@@ -1,6 +1,114 @@
 const puppeteer = require('puppeteer')
 const resumes = require('../model/resumeModel')
 const info = require('../model/infoModel')
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth");
+
+
+exports.resumeParseController = async (req, res) => {
+    const extractText = async (file) => {
+        const { mimetype, buffer } = file;
+
+        if (mimetype === "application/pdf") {
+            const data = await pdfParse(buffer);
+            return data.text; // plain text from PDF
+        }
+
+        if (
+            mimetype ===
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+            mimetype === "application/msword"
+        ) {
+            const result = await mammoth.extractRawText({ buffer });
+            return result.value; // plain text from DOCX/DOC
+        }
+
+        throw new Error("Unsupported file type");
+    };
+
+    const parseResumeText = (text) => {
+        const lines = text
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
+
+        // --- Email ---
+        const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        const email = emailMatch ? emailMatch[0] : null;
+
+        // --- Phone ---
+        const phoneMatch = text.match(/(\+?\d[\d\s\-().]{7,}\d)/);
+        const phone = phoneMatch ? phoneMatch[0].trim() : null;
+
+        // --- LinkedIn ---
+        const linkedinMatch = text.match(/linkedin\.com\/in\/[a-zA-Z0-9_-]+/i);
+        const linkedin = linkedinMatch ? `https://${linkedinMatch[0]}` : null;
+
+        // --- Name (heuristic: first non-empty line) ---
+        const name = lines[0] || null;
+
+        // --- Skills (look for a "Skills" section) ---
+        const skillsMatch = text.match(/skills[:\-]?\s*([\s\S]*?)(?=\n[A-Z]|\n\n|experience|education|$)/i);
+        const skills = skillsMatch
+            ? skillsMatch[1]
+                .split(/[,\n|•]/)
+                .map((s) => s.trim())
+                .filter((s) => s.length > 1 && s.length < 40)
+            : [];
+
+        // --- Education (extract section text) ---
+        const educationMatch = text.match(/education[:\-]?\s*([\s\S]*?)(?=\n[A-Z][A-Z]|\nexperience|\nskills|$)/i);
+        const education = educationMatch ? educationMatch[1].trim() : null;
+
+        // --- Experience (extract section text) ---
+        const experienceMatch = text.match(/experience[:\-]?\s*([\s\S]*?)(?=\neducation|\nskills|\ncertif|$)/i);
+        const experience = experienceMatch ? experienceMatch[1].trim() : null;
+
+        return {
+            name,
+            email,
+            phone,
+            linkedin,
+            skills,
+            education,
+            experience,
+            rawText: text, // keep raw text for AI processing or debugging
+        };
+    };
+
+    try {
+        // Guard: multer didn't attach a file
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No file uploaded" });
+        }
+
+        // Step A: Extract plain text
+        const rawText = await extractText(req.file);
+
+        if (!rawText || rawText.trim().length === 0) {
+            return res.status(422).json({
+                success: false,
+                message: "Could not extract text from the file. It may be scanned/image-based.",
+            });
+        }
+
+        // Step B: Parse structured fields
+        const parsedData = parseResumeText(rawText);
+
+        // Step C: Send response
+        return res.status(200).json({
+            success: true,
+            data: parsedData,
+        });
+    } catch (error) {
+        console.error("Resume parse error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to parse resume",
+        });
+    }
+
+}
 
 
 exports.generatePdfController = async (req, res) => {
