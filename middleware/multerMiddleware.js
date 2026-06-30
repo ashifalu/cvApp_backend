@@ -2,7 +2,7 @@ const multer = require("multer");
 const path = require("path");
 
 const storage = multer.memoryStorage(); // store in memory, not disk
-
+console.log("multer reached")
 const fileFilter = (req, file, cb) => {
     const allowedTypes = [
         "application/pdf",
@@ -15,7 +15,6 @@ const fileFilter = (req, file, cb) => {
         cb(new Error("Only PDF and Word documents are allowed"), false);
     }
 };
-
 const multerMiddleware = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit

@@ -45,7 +45,7 @@ exports.verifyEmailController = async (req, res) => {
 exports.registerController = async (req, res) => {
 
     const { email, otp, password } = req.body;
-
+    console.log(otp)
     try {
             const userOtp = await otps.findOne({email})
             if (userOtp.emailOtpExpiry < Date.now()) {
@@ -144,17 +144,25 @@ exports.googleLoginController = async(req,res) => {
                 password: '#googleLogin'
 
             })
-            console.log(newUser._id)
+            console.log(`newUser:${newUser._id}`)
+            const personalInfo = {
+                firstName,
+                lastName,
+                role: "",
+                photo,
+                linkedInUrl: "",
+                email: "",
+                phoneCountryCode: "+1",
+                phone: "",
+                country: "", city: "", nationality: "", portfolioUrl: ""
+            }
 
             const userInfo = await info.create({
                 user: newUser._id,
-                firstName,
-                lastName,
-                photo
+                personalInfo
             })
             const token = jwt.sign({id:newUser._id},process.env.JWTSECRETKEY)
-
-            console.log('res START');
+            console.log(userInfo)
 
             res.status(200).json({
                 message: 'login successful',

@@ -1,9 +1,9 @@
 const express = require('express');
-const puppeteer = require('puppeteer')
 const userController = require('./controllers/userController')
 const resumeController = require('./controllers/resumeController')
 const authMiddleware = require('./middleware/authMiddleware')
 const multerMiddleware = require('./middleware/multerMiddleware')
+const resumeParseController = require("./controllers/resumeParseController");
 
 
 const routes = new express.Router();
@@ -17,7 +17,7 @@ routes.post('/login',userController.loginController)
 
 routes.post('/google-login',userController.googleLoginController)
 
-routes.post('/resume-parse',multerMiddleware,resumeController.resumeParseController)
+routes.post('/resume-parse',multerMiddleware,resumeParseController.parsingController)
 
 routes.post('/generate-pdf',resumeController.generatePdfController);
 

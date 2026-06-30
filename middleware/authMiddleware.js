@@ -1,13 +1,11 @@
 const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
-  console.log("middleware reached")
+  console.log("auth middleware reached")
 
   try {
-    console.log(req);
     // 1. Get token from header
     const authHeader = req.headers['authorization'];
-    console.log(authHeader)
 
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -15,7 +13,6 @@ const authMiddleware = (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-    console.log(token)
 
 
     // 2. Verify token

@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const mongoose= require('mongoose')
 const cors = require('cors');
 const routes = require('./routes');
 const cloudinary = require('cloudinary').v2;
@@ -14,7 +15,7 @@ cloudinary.config({
     api_secret: process.env.CLOUD_API_SECRET,
 });
 
-// ─── CORS ─────────────────────────────────────────────────────────────────────
+
 const corsOptions = {
     origin: [
         "http://localhost:5173",
@@ -24,7 +25,9 @@ const corsOptions = {
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    optionsSuccessStatus: 200  // ← add this, some browsers send 204 which fails
 };
+
 
 // ← "(.*)": path-to-regexp v8+ no longer accepts bare "*"
 server.use(cors(corsOptions));
@@ -42,9 +45,17 @@ server.use(routes);
 server.use('/images', express.static('public/images'));
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
-require('./connection');
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-});
+// Wrap listen inside connection
+mongoose.connect(process.env.DATABASE)
+    .then(() => {
+        console.log('MongoDB connected');
+        server.listen(PORT, '127.0.0.1', () => {
+            console.log(`Server running at http://localhost:${PORT}`);
+        });
+    })
+    .catch(err => {
+        console.error('DB connection failed:', err);
+        process.exit(1);
+    });
