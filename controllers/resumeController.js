@@ -96,94 +96,137 @@ exports.generatePdfController = async (req, res) => {
 exports.storeDataController = async (req, res) => {
     console.log("storeDataController reached")
     const userId = req.user.id
-    const { personalInfo,
-            professionalSummary,
-            experience,
-            education,
-            projects,
-            awards,
-            skills,
-            languages,
-            resumeUrl } = req.body
-            console.log(req.body)
+    const {
+        resume_id,
+        personalInfo,
+        professionalSummary,
+        experience,
+        education,
+        projects,
+        awards,
+        certifications,
+        skills,
+        languages,
+        resumeUrl,
+        template,
+        theme
+    } = req.body
 
-            try {
-                const newResume = new resumes({
-                    user: userId,
+    try {
+        let savedResume;
+
+        if (resume_id) {
+            // ── UPDATE existing resume ──
+            savedResume = await resumes.findByIdAndUpdate(
+                resume_id,
+                {
                     title: personalInfo.role,
-                    pdfUrl: resumeUrl
-                })
-
-                const savedResumes= await newResume.save()
-                console.log(savedResumes)
-
-                // Find existing record for this user
-                const existing = await info.findOne({ user: userId })
-        
-                if (existing) {
-                    // UPDATE — merge arrays, don't replace
-        
-                    // For arrays: add only NEW items that don't already exist
-                    const mergeArray = (existingArr, newArr, uniqueKey) => {
-                        if (!newArr || newArr.length === 0) return existingArr;
-                        
-                        const merged = [...existingArr];
-                        newArr.forEach(newItem => {
-                            const alreadyExists = existingArr.some(
-                                existing => JSON.stringify(existing[uniqueKey]) === JSON.stringify(newItem[uniqueKey])
-                            );
-                            if (!alreadyExists) {
-                                merged.push(newItem);
-                            }
-                        });
-                        return merged;
-                    };
-        
-                    existing.personalInfo = personalInfo || existing.personalInfo;
-                    existing.education = mergeArray(existing.education, education, 'school');
-                    existing.experience = mergeArray(existing.experience, experience, 'jobTitle');
-                    existing.projects = mergeArray(existing.projects, projects, 'projectTitle');
-                    existing.awards = mergeArray(existing.awards, awards, 'awardName');
-                    existing.skills = mergeArray(existing.skills, skills, 'skill');
-                    existing.languages = mergeArray(existing.languages, languages, 'language');
-                    // if (resumeUrl) existing.resumeUrl = resumeUrl;
-        
-                    const updated = await existing.save();
-                    res.status(200).json({ 
-                        message: 'CV updated successfully', 
-                        data: updated 
-                    });
-        
-                } else {
-                    // CREATE — first time storing
-                    const newInfo = new info({
-                        user: userId,
+                    pdfUrl: resumeUrl,
+                    previewData: {
                         personalInfo,
-                        professionalSummary: professionalSummary,
-                        education: education || [],
-                        experience: experience || [],
-                        projects: projects || [],
-                        awards: awards || [],
-                        skills: skills || [],
-                        languages: languages || [],
-                        // resumeUrl: resumeUrl || ''
-                    });
-        
-                    const saved = await newInfo.save();
-                    res.status(201).json({ 
-                        message: 'CV created successfully', 
-                        data: saved 
-                    });
-                }
-        
-            } catch (error) {
-                console.error('Store error:', error);
-                res.status(500).json({ error: 'Failed to store CV data' });
+                        professionalSummary,
+                        experience,
+                        education,
+                        projects,
+                        awards,
+                        certifications,
+                        skills,
+                        languages,
+                    },
+                    template,
+                    theme,
+                },
+                { new: true, runValidators: true }
+            );
+
+            if (!savedResume) {
+                return res.status(404).json({ message: 'Resume not found' });
             }
-        
 
+        } else {
+            // ── CREATE new resume ──
+            const newResume = new resumes({
+                user: userId,
+                title: personalInfo.role,
+                pdfUrl: resumeUrl,
+                previewData: {
+                    personalInfo,
+                    professionalSummary,
+                    experience,
+                    education,
+                    projects,
+                    awards,
+                    certifications,
+                    skills,
+                    languages,
+                },
+                template,
+                theme,
+            });
+
+            savedResume = await newResume.save();
+        }
+
+        // Find existing record for this user
+        const existing = await info.findOne({ user: userId })
+
+        if (existing) {
+            // UPDATE — merge arrays, don't replace
+
+            const mergeArray = (existingArr, newArr, uniqueKey) => {
+                if (!newArr || newArr.length === 0) return existingArr;
+
+                const merged = [...existingArr];
+                newArr.forEach(newItem => {
+                    const alreadyExists = existingArr.some(
+                        existing => JSON.stringify(existing[uniqueKey]) === JSON.stringify(newItem[uniqueKey])
+                    );
+                    if (!alreadyExists) {
+                        merged.push(newItem);
+                    }
+                });
+                return merged;
+            };
+
+            existing.personalInfo = personalInfo || existing.personalInfo;
+            existing.education = mergeArray(existing.education, education, 'school');
+            existing.experience = mergeArray(existing.experience, experience, 'jobTitle');
+            existing.projects = mergeArray(existing.projects, projects, 'projectTitle');
+            existing.awards = mergeArray(existing.awards, awards, 'awardName');
+            existing.certifications = mergeArray(existing.certifications, certifications, 'certificateName');
+            existing.skills = mergeArray(existing.skills, skills, 'skill');
+            existing.languages = mergeArray(existing.languages, languages, 'language');
+
+            await existing.save();
+
+        } else {
+            // CREATE — first time storing
+            const newInfo = new info({
+                user: userId,
+                personalInfo,
+                professionalSummary: professionalSummary,
+                education: education || [],
+                experience: experience || [],
+                projects: projects || [],
+                awards: awards || [],
+                certifications: certifications || [],
+                skills: skills || [],
+                languages: languages || [],
+            });
+
+            await newInfo.save();
+        }
+
+        res.status(resume_id ? 200 : 201).json({
+            message: resume_id ? 'CV updated successfully' : 'CV created successfully',
+            data: savedResume
+        });
+
+    } catch (error) {
+        console.error('Store error:', error);
+        res.status(500).json({ error: 'Failed to store CV data' });
+    }
 }
-
 exports.getAllResumesController = async (req,res) => {
     console.log("resumes");
     const userId = req.user.id
@@ -191,11 +234,7 @@ exports.getAllResumesController = async (req,res) => {
     try {
         const all_resumes = await resumes.find({user:userId})
         const all_infos = await info.find({user:userId})
-        console.log(all_resumes);
-        console.log(all_infos);
-        // if(!all_resumes || all_resumes.length == 0){
-        //    return res.status(200).json([]) 
-        // }
+
         return res.status(200).json({
             resumes: all_resumes,
             info: all_infos
@@ -205,4 +244,16 @@ exports.getAllResumesController = async (req,res) => {
         res.status(500).json(error)
     }
     
+}
+
+exports.deleteResumeController = async (req,res) => {
+    const id = req.params.id;
+    console.log(id)
+    try {
+        await resumes.findByIdAndDelete({_id:id})
+        res.status(200).json('resume deleted successfully')
+    } catch (error) {
+        console.log(error)
+        res.status(500).json(error)
+    }
 }

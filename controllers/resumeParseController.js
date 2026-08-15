@@ -154,7 +154,7 @@ exports.parsingController = async (req, res) => {
 
         // --- Role ---
         const roleMatch = text.match(
-            /^(.*?(developer|engineer|designer|manager|analyst|consultant|architect|lead|intern|specialist|coordinator|director|officer|executive|scientist|researcher|administrator|devops|fullstack|full stack|frontend|backend|data|cloud|mobile|web|software|programmer|coder|qa|tester|sdet|product|project|scrum|agile|technical|technology|it|support|helpdesk|security|cybersecurity|network|system|database|dba|machine learning|ml|ai|artificial intelligence|business|marketing|sales|finance|accountant|accounting|auditor|hr|human resources|recruiter|talent|operations|operator|procurement|supply chain|logistics|customer success|customer service|representative|advisor|agent|teacher|trainer|instructor|professor|lecturer|doctor|physician|nurse|pharmacist|therapist|lawyer|attorney|legal|paralegal|writer|editor|content|copywriter|journalist|seo|sem|ux|ui|graphic|creative|video|media|production|founder|co-founder|owner|entrepreneur|president|vice president|vp|chief|cto|ceo|cfo|coo|head of|principal|staff|associate|junior|senior|store keeper|Pharmacy assistent|rep|medical coder)[^\n]*)/im
+            /^(.*?(Pharmacy Assistant|Pharmacist|developer|engineer|designer|manager|analyst|consultant|architect|lead|intern|specialist|coordinator|director|officer|executive|scientist|researcher|administrator|devops|fullstack|full stack|frontend|backend|data|cloud|mobile|web|software|programmer|coder|qa|tester|sdet|product|project|scrum|agile|technical|technology|it|support|helpdesk|security|cybersecurity|network|system|database|dba|machine learning|ml|ai|artificial intelligence|business|marketing|sales|finance|accountant|accounting|auditor|hr|human resources|recruiter|talent|operations|operator|procurement|supply chain|logistics|customer success|customer service|representative|advisor|agent|teacher|trainer|instructor|professor|lecturer|doctor|physician|nurse|pharmacist|therapist|lawyer|attorney|legal|paralegal|writer|editor|content|copywriter|journalist|seo|sem|ux|ui|graphic|creative|video|media|production|founder|co-founder|owner|entrepreneur|president|vice president|vp|chief|cto|ceo|cfo|coo|head of|principal|staff|associate|junior|senior|store keeper|Pharmacy assistent|rep|Medical Coder|IT Support|Adminstative|Customere service)[^\n]*)/im
         );
 
         const role = roleMatch
@@ -306,6 +306,14 @@ exports.parsingController = async (req, res) => {
             extractSection(text, "about me") ||
             extractSection(text, "profile") ||
             null;
+
+        const MONTHS =
+            "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december";
+        const DATE_TOKEN = `(?:${MONTHS})\\.?\\s*['’]?\\d{2,4}|\\d{1,2}\\/\\d{4}|\\d{4}`;
+        const DATE_RANGE_REGEX = new RegExp(
+            `(${DATE_TOKEN})\\s*(?:-|–|—|to|until|through)\\s*(${DATE_TOKEN}|present|current|now|ongoing|till date|to date)`,
+            "i"
+        );
 
         // ─── Skills → array of strings ────────────────────────────────────────────
         const skillsRaw =
@@ -578,53 +586,88 @@ exports.parsingController = async (req, res) => {
             null;
         console.log(experienceRaw);
 
+        const SINGLE_DATE_REGEX = new RegExp(`\\b(${DATE_TOKEN})\\b`, "i");
+
+
+        const parseDates = (blockText) => {
+            const rangeMatch = blockText.match(DATE_RANGE_REGEX);
+            if (rangeMatch) {
+                return { startDate: rangeMatch[1].trim(), endDate: rangeMatch[2].trim() };
+            }
+            const sinceMatch = blockText.match(SINCE_REGEX);
+            if (sinceMatch) {
+                return { startDate: sinceMatch[1].trim(), endDate: "Present" };
+            }
+            const singleMatch = blockText.match(SINGLE_DATE_REGEX);
+            if (singleMatch) {
+                return { startDate: singleMatch[1].trim(), endDate: null };
+            }
+            return { startDate: null, endDate: null };
+        };
+
+        const SINCE_REGEX = new RegExp(`\\bsince\\s+(${DATE_TOKEN})`, "i");
+
+        const extractLocation = (lines, exclude = []) => {
+            const locationLine = lines.find(
+                (l) =>
+                    /^[A-Za-z\s]+,\s*[A-Za-z\s]+/.test(l) &&
+                    !exclude.includes(l) &&
+                    !/\b(inc|ltd|llc|pvt|university|college|institute|hospital|tech|solutions)\b/i.test(l)
+            );
+            if (!locationLine) return { city: null, country: null };
+            const parts = locationLine.replace(/\.$/, "").split(",").map((p) => p.trim()).filter(Boolean);
+            return { city: parts[0] || null, country: parts[parts.length - 1] || null };
+        };
+
+
+
+        const isExperienceHeaderLine = (line) =>
+            /\b(developer|engineer|designer|manager|analyst|consultant|architect|lead|intern|specialist|coordinator|director|officer|executive|scientist|researcher|administrator|technician|supervisor|assistant|accountant|nurse|teacher|driver|cashier|receptionist|clerk|operator|advisor|representative|agent|associate|senior|junior|head of|chief|founder)\b/i.test(
+                line
+            ) &&
+            line.split(" ").length <= 12 &&
+            !/[.!?]$/.test(line);
+
         const experience = experienceRaw
             ? splitExperienceBlocks(experienceRaw)
                 .map((block) => {
-                    const lines = block
-                        .split("\n")
-                        .map((l) => l.trim())
-                        .filter(Boolean);
 
-                    // ─── Date line ────────────────────────────────────────────────────
-                    const dateLine = lines.find((l) => /\b(19|20)\d{2}\b/.test(l));
-                    let startDate = null;
-                    let endDate   = null;
 
-                    if (dateLine) {
-                        const years      = dateLine.match(/\b(19|20)\d{2}\b/gi) || [];
-                        const hasPresent = /present|current|now/i.test(dateLine);
-                        startDate = years[0] || null;
-                        endDate   = years[1] || (hasPresent ? "Present" : null);
-                    }
-
-                    // ─── Job title detection ──────────────────────────────────────────
-                    const titleLine = lines.find((l) =>
-                        /\b(developer|engineer|designer|manager|analyst|consultant|architect|lead|intern|specialist|coordinator|director|officer|executive|scientist|researcher|administrator|devops|fullstack|frontend|backend|mobile|cloud|data|senior|junior|associate|head|chief|vp|president|Software EngineerMERN Stack Developer |Full Stack Developer|Senior React Developer| Frontend Engineer |Product Manager |QA Automation Engineer |Technical Support Engineer |Data Scientist |Machine Learning Engineer |UI Designer|shop keeper|medical coder|store keeper|marketing|hospital|staff|support|system)\b/i.test(l)
+                    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+                    const titleLine = lines.find(isExperienceHeaderLine);
+                    const companyLine = lines.find(
+                        (l) =>
+                            /\b(inc|ltd|llc|pvt|solutions|technologies|tech|systems|group|services|consulting|studio|labs|agency|software|digital|global|clinic|hospital|school|college|university|institute|center|centre|trading|enterprises|holdings|corp|corporation)\b/i.test(l) &&
+                            l !== titleLine
                     );
+                    const dateLine = lines.find((l) => DATE_RANGE_REGEX.test(l) || SINCE_REGEX.test(l));
+                    const { startDate, endDate } = parseDates(block);
+                    const { city, country } = extractLocation(lines, [titleLine, companyLine, dateLine].filter(Boolean));
 
-                    // ─── Company detection ────────────────────────────────────────────
-                    const companyLine = lines.find((l) =>
-                        /\b(inc|ltd|llc|pvt|solutions|technologies|tech|systems|group|services|consulting|studio|labs|agency|software|digital|global|medicals|clinic|hospital)\b/i.test(l)
-                    );
+                    const responsibilities = lines
+                        .filter(
+                            (l) =>
+                                /^[•\-–→*▪◦]\s*/.test(l) ||
+                                (l !== titleLine &&
+                                    l !== companyLine &&
+                                    l !== dateLine &&
+                                    l.split(" ").length > 5) // long descriptive line = likely a bullet with formatting stripped
+                        )
+                        .map((l) => l.replace(/^[•\-–→*▪◦]\s*/, "").trim());
 
-                    // ─── Responsibilities: bullet lines ───────────────────────────────
-                    const responsibilities = lines.filter((l) =>
-                        /^[•\-–→*▪◦]\s+/.test(l) ||           // starts with bullet
-                        /^(developed|built|designed|managed|led|created|implemented|improved|maintained|collaborated|worked|responsible|achieved|delivered|increased|reduced|automated|handeled|coded|assisted|distribute|packaged|stock|bill|purchase|account|coordiante|communicate)/i.test(l)
-                    ).map((l) => l.replace(/^[•\-–→*▪◦]\s*/, "").trim());
-
-                    const nonDateLines = lines.filter(l => l !== dateLine);
+                    const usedLines = [titleLine, companyLine, dateLine].filter(Boolean);
+                    const remaining = lines.filter((l) => !usedLines.includes(l));
 
                     return {
-                        jobTitle:         titleLine    || nonDateLines[0] || null,
-                        employer:         companyLine  || nonDateLines[1] || null,
+                        jobTitle: titleLine || remaining[0] || null,
+                        employer: companyLine || remaining[1] || null,
                         startDate,
                         endDate,
-                        country:          null,
-                        city:             null,
+                        city,
+                        country,
                         responsibilities,
                     };
+
                 })
                 .filter((e) => e.jobTitle || e.employer)
             : [];
