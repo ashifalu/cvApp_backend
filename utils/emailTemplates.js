@@ -15,7 +15,7 @@ exports.otpEmailTemplate = ({ otp, title = "Verify your email", message = "Use t
               <!-- Header / Brand -->
               <tr>
                 <td style="background: linear-gradient(90deg, #6366f1, #8b5cf6); padding: 28px 32px;">
-                  <span style="font-size:20px; font-weight:700; color:#ffffff; letter-spacing:0.3px;">ResumeElite</span>
+                  <span style="font-size:20px; font-weight:700; color:#ffffff; letter-spacing:0.3px;">Pro CV Builder</span>
                 </td>
               </tr>
 
@@ -41,7 +41,7 @@ exports.otpEmailTemplate = ({ otp, title = "Verify your email", message = "Use t
               <tr>
                 <td style="padding: 20px 32px; background-color:#f9fafb; border-top:1px solid #eef0f3;">
                   <p style="margin:0; font-size:12px; color:#9ca3af; text-align:center;">
-                    &copy; ${new Date().getFullYear()} ResumeElite. All rights reserved.
+                    &copy; ${new Date().getFullYear()} Pro CV Builder. All rights reserved.
                   </p>
                 </td>
               </tr>
